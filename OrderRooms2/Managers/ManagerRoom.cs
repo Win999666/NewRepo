@@ -91,7 +91,6 @@ namespace OrderRooms2.Managers
             string s = string.Empty;
             s += room.Description;
             s += "\n";
-            //bkjhnb
             foreach(var item in room.Bookings)
             {
                 s += item.InDate;
