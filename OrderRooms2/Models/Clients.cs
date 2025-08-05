@@ -1,6 +1,6 @@
 ﻿namespace OrderRooms2.Models
 {
-    public class User
+    public class Clients
     {
         public int Id { get; set; }
         public string IPAdress { get; set; }

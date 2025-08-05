@@ -1,97 +1,89 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderRooms2.Context;
 using OrderRooms2.ModelDto;
 using OrderRooms2.Models;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace OrderRooms2.Managers
 {
     public class ManagerRoom
     {
-       private readonly ApplicationDbContext _db;
+        private readonly ApplicationDbContext _db;
         public ManagerRoom(ApplicationDbContext db)
         {
             _db = db;
         }
 
-       
-        public IEnumerable<User> GetAllUsers()
-        {
-            return _db.Users;
-        }
-
-        public string Authorization(UserDto user)
-        {
-            var checkUser = _db.Users.FirstOrDefault(item => item.NickName == user.NickName);
-            if(checkUser is null||checkUser.Password != user.Password)
-            {
-                return "неверный nickName или password";
-            }
-            return $"Welcome {checkUser.NickName}";
-        }
-        public string Registration(UserDto dto, string ip)
-        {
-            var s = _db.Users.FirstOrDefault(item => item.NickName == dto.NickName);
-            if(s is not null)
-            {
-                return "такой никнейм уже есть";
-            }
-            User user1 = new User();
-            user1.Password = dto.Password;
-            user1.IPAdress = ip;
-            user1.NickName = dto.NickName;
-            user1.Role = "client";
-            _db.Users.Add(user1);
-            _db.SaveChanges();
-            return $"{user1.NickName} успешно  создан";
-        }
-        public string AddRoom(RoomDto room)
+        public async Task<string> AddRoom(RoomDto room)
         {
             Room newRoom = new Room();
             newRoom.Description = room.Description;
             newRoom.Price = room.Price;
-            _db.Rooms.Add(newRoom);
-            _db.SaveChanges();
+            await _db.Rooms.AddAsync(newRoom);
+            await _db.SaveChangesAsync();
             return "успешно";
         }
-        public string DeleteRoom(int id)
+        public async Task<string> DeleteRoom(int id)
         {
-           var room =  _db.Rooms.FirstOrDefault(item => item.Id == id);
-            if(room is null)
+            var room = await _db.Rooms.FirstOrDefaultAsync(item => item.Id == id);
+            if (room is null)
             {
                 return "не найдено комнаты с таким id";
             }
             _db.Rooms.Remove(room);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
             return "успешно";
         }
-        public IEnumerable<Room> GetAllRooms()
+        public async Task<IEnumerable<Room>> GetAllRooms()
         {
-            return _db.Rooms.Include(item => item.Bookings).ToList();
+            return await _db.Rooms.Include(item => item.Bookings).ToListAsync();
         }
-        public string BookingRoom(int id, Booking booking)
+        public async Task<ActionResult> BookingRoom(int id, BookingDto booking)
         {
-            var room = _db.Rooms.Include(item => item.Bookings).FirstOrDefault(item => item.Id == id);
+            var room = await _db.Rooms.Include(item => item.Bookings).FirstOrDefaultAsync(item => item.Id == id);
             if (room is null)
             {
-                return "нет такой комнаты";
+                return new BadRequestObjectResult("нет такой комнаты");
             }
-            room.Bookings.Add(booking);
-            _db.SaveChanges();
-            return $"{room.Description} add sucsesfull";
-          
+            //var book = new Booking()
+            //{
+            //    InDate = booking.DateIn.ToDateTime(TimeOnly.MaxValue),
+            //    OutDate = booking.DateOut.ToDateTime(TimeOnly.MinValue),
+            //    RoomId = id
+            //};
+            var book = new Booking()
+            {
+                // Преобразуем DateOnly в DateTime, затем явно устанавливаем Kind в Utc
+                // DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
+                InDate = DateTime.SpecifyKind(booking.DateIn.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
+                OutDate = DateTime.SpecifyKind(booking.DateOut.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
+                RoomId = id
+            };
+            var check = await CheckBookings(id, book);
+            if (check == false)
+            {
+                return new BadRequestObjectResult("date invalid");
+            }
+
+            room.Bookings.Add(book);
+            await _db.SaveChangesAsync();
+            return new OkObjectResult("Sucsesful");
+
         }
-        public string GetRoomById(int id)
+        public async Task<string> GetRoomById(int id)
         {
-           var room = _db.Rooms.Include(item => item.Bookings).FirstOrDefault(item => item.Id == id);
-            if( room is null)
+            var room = await _db.Rooms.Include(item => item.Bookings).FirstOrDefaultAsync(item => item.Id == id);
+            if (room is null)
             {
                 return "нет такой комнаты";
             }
             string s = string.Empty;
             s += room.Description;
             s += "\n";
-            foreach(var item in room.Bookings)
+            foreach (var item in room.Bookings)
             {
                 s += item.InDate;
                 s += "\n";
@@ -100,6 +92,38 @@ namespace OrderRooms2.Managers
                 s += "\n";
             }
             return s;
+        }
+
+        public async Task<ActionResult> DeleteBooking(int id)
+        {
+            var book = await _db.Bookings.FirstOrDefaultAsync(item => item.Id == id);
+            if (book is null)
+            {
+                return new BadRequestObjectResult("id error");
+            }
+            _db.Bookings.Remove(book);
+            await _db.SaveChangesAsync(true);
+            return new OkObjectResult("ok");
+        }
+        public async Task<bool> CheckBookings(int idRoom, Booking book)
+        {
+            var room = await _db.Rooms.FirstOrDefaultAsync(item => item.Id == idRoom);
+            if (room is null)
+            {
+                return false;
+            }
+            List<Booking> bookings =  (from item in await _db.Bookings.ToListAsync()
+                                      where item.RoomId == room.Id
+                                      select item).ToList();
+
+            foreach (var booking in bookings)
+            {
+                if (book.InDate <= booking.OutDate && book.OutDate >= booking.InDate)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

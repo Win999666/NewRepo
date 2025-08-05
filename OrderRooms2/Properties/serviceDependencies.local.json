@@ -4,10 +4,10 @@
       "type": "secrets.user"
     },
     "postgresql1": {
-      "containerPorts": "5433:5432",
+      "containerPorts": "5432:5432",
       "secretStore": "LocalSecretsFile",
-      "containerName": "postgres17",
-      "containerImage": "postgres:17",
+      "containerName": "SomeConteiner",
+      "containerImage": "postgres",
       "type": "postgresql.container",
       "connectionId": "ConnectionStrings:DatabaseConnection"
     }

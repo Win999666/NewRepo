@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OrderRooms2.Context;
 using OrderRooms2.Managers;
 using OrderRooms2.ModelDto;
 using OrderRooms2.Models;
+using System.Threading.Tasks;
 
 namespace OrderRooms2.Controllers
 {
@@ -16,57 +18,47 @@ namespace OrderRooms2.Controllers
         {      
             _manager = man;
         }
-      
-
-        [HttpGet("GetAllUsers")]
-        public IEnumerable<User> GetAllUsers()
-        {
-          return  _manager.GetAllUsers();
-        }
-
+        [Authorize]
         [HttpGet("GetAllRooms")]
-        public IEnumerable<Room> GetAllRooms()
+        public async Task<IEnumerable<Room>> GetAllRooms()
         {
-           return _manager.GetAllRooms();
+           return await _manager.GetAllRooms();
         }
-
+        [Authorize]
         [HttpGet("GetRoomById")]
-        public string GetRoomById(int id)
+        public async Task<string> GetRoomById(int id)
         {
-            return _manager.GetRoomById(id);
+            return await _manager.GetRoomById(id);
         }
 
-        [HttpPost("Registration")]
-        public string Registration(UserDto dto)
-        {
-            string ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-          return  _manager.Registration(dto, ip);
-        }
-
-        [HttpPost("Authorization")]
-        public string Authorization(UserDto dto)
-        {
-           return _manager.Authorization(dto);
-        }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost("CreateRoom")]
-        public string AddRoom(RoomDto room)
+        public async Task<string> AddRoom(RoomDto room)
         {
-            return _manager.AddRoom(room);
+            return await _manager.AddRoom(room);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("DeleteRoom")]
-        public string DeleteRoom(int id)
+        public async Task<string> DeleteRoom(int id)
         {
-           return _manager.DeleteRoom(id);
+           return await _manager.DeleteRoom(id);
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("DeleteBooking")]
+        public async Task<ActionResult> DeleteBooking(int id)
+        {
+            return await _manager.DeleteBooking(id);
+        }
+
+        [Authorize]
         [HttpPost("CreateBooking")]
-        public string CreateBooking(int id, Booking booking)
+        public async Task<IActionResult> CreateBooking(int id, BookingDto dto)
         {
-
-           return _manager.BookingRoom(id, booking);
+           return await _manager.BookingRoom(id, dto);
         }
+        
        
     }
 }
